@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Change Click Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+
+    #box {
+      width: 150px;
+      height: 150px;
+      margin: 40px auto;
+      background-color: gray;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    #startBtn {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #message,
+    #highScoreDisplay {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+
+    #description {
+      margin-top: 40px;
+      font-size: 16px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 10px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎯 Click When the Box Turns Green</h1>
+
+  <button id="startBtn">Start</button>
+  <div id="box"></div>
+  <div id="message"></div>
+  <div id="highScoreDisplay">High Score: --</div>
+
+  <div id="description">
+    This is the color box game. In this game, you have to click on the grey square when it turns green.
+    Click "Start" to begin!  
+    The lower your score (closer to 0), the better! A higher score like 2 is worse.  
+    Good luck and try your best!
+  </div>
+
+  <script>
+    let gameStarted = false;
+    let colorChangeTime = 0;
+    let clicked = false;
+    let timeoutID = null;
+
+    const box = document.getElementById("box");
+    const message = document.getElementById("message");
+    const highScoreDisplay = document.getElementById("highScoreDisplay");
+    const startBtn = document.getElementById("startBtn");
+
+    // Load high score from localStorage
+    let highScore = parseFloat(localStorage.getItem("colorClickHighScore"));
+    if (!isNaN(highScore)) {
+      highScoreDisplay.textContent = `High Score: ${highScore.toFixed(3)}s`;
+    }
+
+    startBtn.onclick = () => {
+      gameStarted = true;
+      clicked = false;
+      box.style.backgroundColor = "gray";
+      message.textContent = "Wait for it...";
+
+      const delay = Math.random() * 3000 + 2000; // 2–5 seconds
+      timeoutID = setTimeout(() => {
+        colorChangeTime = performance.now();
+        box.style.backgroundColor = "green";
+        message.textContent = "CLICK NOW!";
+      }, delay);
+    };
+
+    box.onclick = () => {
+      if (!gameStarted || clicked) return;
+      clicked = true;
+
+      const clickTime = performance.now();
+
+      if (box.style.backgroundColor === "green") {
+        const reactionTime = (clickTime - colorChangeTime) / 1000;
+        message.textContent = `✅ Good job! Your reaction time: ${reactionTime.toFixed(3)}s`;
+
+        if (isNaN(highScore) || reactionTime < highScore) {
+          highScore = reactionTime;
+          localStorage.setItem("colorClickHighScore", highScore);
+          highScoreDisplay.textContent = `High Score: ${highScore.toFixed(3)}s 🏆 New Best!`;
+        }
+
+      } else {
+        clearTimeout(timeoutID);
+        message.textContent = "❌ Too soon! Wait for green!";
+      }
+
+      gameStarted = false;
+    };
+  </script>
+
+</body>
+</html>
