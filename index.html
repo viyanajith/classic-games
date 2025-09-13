@@ -2,122 +2,458 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Color Change Click Game</title>
+  <title>Flappy Bird </title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-      background-color: #f9f9f9;
-    }
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#87ceeb; }
+    canvas      { display:block; width:100%; height:100%; }
 
-    #box {
-      width: 150px;
-      height: 150px;
-      margin: 40px auto;
-      background-color: gray;
+    /* overlays */
+    #msg,#subMsg,#startHint,#hud{
+      position:absolute;pointer-events:none;font-family:Arial,sans-serif;
+      text-shadow:2px 2px 4px rgba(0,0,0,.4);color:#ffffff;text-align:center;
+    }
+    #msg{top:40%;left:50%;transform:translateX(-50%);font-size:64px;font-weight:bold;color:#ff3232;display:none;}
+    #subMsg{top:55%;left:50%;transform:translateX(-50%);font-size:28px;font-weight:bold;display:none;}
+    #startHint{top:40%;left:50%;transform:translateX(-50%);font-size:40px;}
+    #hud{top:12px;right:16px;font-size:28px;font-weight:bold;line-height:1.3;white-space:pre;}
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- UI layers -->
+<div id="msg">YOU&nbsp;DIED!</div>
+<div id="subMsg"></div>
+<div id="startHint">Press&nbsp;SPACE&nbsp;to&nbsp;start / flap</div>
+<div id="hud"></div>
+
+<script>
+/* ---------- canvas ---------- */
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+addEventListener("resize",resize);resize();
+
+/* ---------- bird ---------- */
+const GRAVITY=-1,JUMP=9,SIZE=35;
+const bird={size:SIZE,x:canvas.width/2-200,scratchY:0,ySpeed:0};
+
+/* ---------- pipes ---------- */
+const PIPE_W=135,PIPE_VX=2,GAP_MIN=140,GAP_MAX=175,MIN_WALL=10;
+let pipes=[];
+
+/* ---------- quips by cause ---------- */
+const QUIPS={
+  ground:"you got caked by a stone cake!",
+  ceiling:"you tried to touch the sun!",
+  pipe:"you became a pancake by a pipe!"
+};
+
+/* ---------- score / high‑score ---------- */
+let score=0;
+let highScore=Number(localStorage.getItem("HighScoreOfPlayer")||0);
+const hud=document.getElementById("hud");
+function updateHUD(){ hud.textContent=`Score: ${score}\nHigh:  ${highScore}`; }
+
+/* build one pipe pair */
+function makePipePair(){
+  const H=canvas.height;
+  const gapTarget=GAP_MIN+Math.floor(Math.random()*(GAP_MAX-GAP_MIN+1));
+  let topH,bottomH,gap;
+  do{
+    topH=MIN_WALL+Math.floor(Math.random()*(H-2*MIN_WALL));
+    bottomH=MIN_WALL+Math.floor(Math.random()*(H-2*MIN_WALL));
+    gap=H-topH-bottomH;
+  }while(gap<=0);
+  if(gap>gapTarget){while(gap>gapTarget){topH++;bottomH++;gap-=2;}}
+  else if(gap<gapTarget){
+    while(gap<gapTarget){
+      if(topH>MIN_WALL)topH--;
+      if(bottomH>MIN_WALL)bottomH--;
+      gap+=2;
+    }
+    if(gap===gapTarget+1){
+      if(Math.random()<.5&&topH>MIN_WALL)topH++;else bottomH++;
+    }
+  }
+  return{x:canvas.width+PIPE_W,topH,bottomH,w:PIPE_W,scored:false}; // scored flag
+}
+
+/* helpers */
+function die(cause){
+  running=false;
+  document.getElementById("msg").style.display="block";
+  const sub=document.getElementById("subMsg");
+  sub.textContent=QUIPS[cause]||"RIP!";
+  sub.style.display="block";
+  // update & persist high‑score one last time in case you died clearing a pipe
+  if(score>highScore){
+    highScore=score;
+    localStorage.setItem("HighScoreOfPlayer",highScore);
+    updateHUD();
+  }
+}
+
+/* ---------- game state ---------- */
+let started=false,running=true,jumpQueued=false;
+addEventListener("keydown",e=>{
+  if(e.code!=="Space")return;
+  if(!started){
+    started=true;
+    document.getElementById("startHint").style.display="none";
+    bird.ySpeed=JUMP;
+    pipes.push(makePipePair());
+    score=0; updateHUD();
+  }else if(running){
+    jumpQueued=true;
+  }
+});
+
+/* ---------- main loop ---------- */
+function update(){
+  if(!running)return;
+
+  /* bird physics */
+  if(started){
+    bird.ySpeed+=GRAVITY;
+    if(jumpQueued){bird.ySpeed=JUMP;jumpQueued=false;}
+    bird.scratchY+=bird.ySpeed;
+  }
+  const yCanvas=canvas.height/2-bird.scratchY;
+
+  /* edge death */
+  if(started){
+    if(yCanvas-SIZE/2<=0){die("ceiling");}
+    else if(yCanvas+SIZE/2>=canvas.height){die("ground");}
+  }
+
+  /* pipes movement + spawn */
+  if(started){
+    for(const p of pipes)p.x-=PIPE_VX;
+    pipes=pipes.filter(p=>p.x+p.w>0);
+    const last=pipes[pipes.length-1];
+    if(!last||last.x+last.w<canvas.width-300)pipes.push(makePipePair());
+  }
+
+  /* pipe collision + scoring */
+  if(started&&running){
+    const bL=bird.x-SIZE/2,bR=bird.x+SIZE/2,bT=yCanvas-SIZE/2,bB=yCanvas+SIZE/2;
+    for(const p of pipes){
+      const pL=p.x,pR=p.x+p.w;
+      /* ---- collision ---- */
+      if(bR>pL&&bL<pR){
+        if(bT<=p.topH||bB>=canvas.height-p.bottomH){die("pipe");break;}
+      }
+      /* ---- scoring ---- */
+      if(!p.scored && bR>pR){            // bird completely passed pipe
+        p.scored=true;
+        score++;
+        if(score>highScore){
+          highScore=score;
+          localStorage.setItem("HighScoreOfPlayer",highScore);
+        }
+        updateHUD();
+      }
+    }
+  }
+
+  draw(yCanvas);
+  requestAnimationFrame(update);
+}
+
+/* ---------- render ---------- */
+function draw(yCanvas){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#1faa00";
+  for(const p of pipes){
+    ctx.fillRect(p.x,0,p.w,p.topH);
+    ctx.fillRect(p.x,canvas.height-p.bottomH,p.w,p.bottomH);
+  }
+  ctx.fillStyle="#ffdc00";
+  ctx.fillRect(bird.x-SIZE/2,yCanvas-SIZE/2,SIZE,SIZE);
+}
+
+/* ---------- boot ---------- */
+updateHUD();
+draw(canvas.height/2);
+requestAnimationFrame(update);
+</script>
+</body>
+</html>
+
+<!--
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tetris Game</title>
+  <style>
+    html, body { margin: 0; background: black; color: white; font-family: sans-serif; }
+    canvas { display: block; margin: auto; background: #111; }
+    #instructions {
+      text-align: center; font-size: 14px; margin: 16px auto; max-width: 500px;
+    }
+    #score, #level, #interval, #highscore {
+      position: absolute;
+      font-size: 20px;
+      font-family: monospace;
+    }
+    #score { top: 10px; right: 20px; }
+    #level { bottom: 10px; left: 20px; }
+    #interval { bottom: 10px; right: 20px; }
+    #highscore { top: 10px; left: 20px; }
+    #go_back_btn { 
+      position: absolute;
+      top: 700px;
+      left: 650px;
+      font-size: 30px;
+      border-radius: 4px;
+      outline: 2px white solid;
+      background: black;
+      color: white;
       cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    #startBtn {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    #message,
-    #highScoreDisplay {
-      margin-top: 20px;
-      font-size: 18px;
-    }
-
-    #description {
-      margin-top: 40px;
-      font-size: 16px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-      background: #e3f2fd;
-      padding: 15px;
-      border-radius: 10px;
-      color: #333;
     }
   </style>
 </head>
 <body>
+<canvas id="game" width="300" height="600"></canvas>
+<div id="highscore">High Score: Level 0, Points 0</div>
+<div id="score">Score: 0</div>
+<button id="go_back_btn" onclick="go_back()">Go Back</button>
+<div id="level">Level: 1</div>
+<div id="interval">Interval: 1000ms</div>
+<p id="instructions">
+  Press SPACE to start the game.<br>
+  ← / → to move, ↓ to drop faster, ↑ for hard drop.<br>
+  R: Rotate Right | ⇧+↑: Skip to next piece
+</p>
 
-  <h1>🎯 Click When the Box Turns Green</h1>
+<script>
+function go_back() { window.location = "https://viyanajith.blog/viyanajith-blog-games-classic/"; }
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-  <button id="startBtn">Start</button>
-  <div id="box"></div>
-  <div id="message"></div>
-  <div id="highScoreDisplay">High Score: --</div>
+const COLS = 10, ROWS = 20, BLOCK = 30;
+canvas.width = COLS * BLOCK;
+canvas.height = ROWS * BLOCK;
 
-  <div id="description">
-    This is the color box game. In this game, you have to click on the grey square when it turns green.
-    Click "Start" to begin!  
-    The lower your score (closer to 0), the better! A higher score like 2 is worse.  
-    Good luck and try your best!
-  </div>
+const PIECES = {
+  T: { color: "#a349a4", rotations: [
+    [ [0,1],[1,0],[1,1],[2,1] ],
+    [ [1,0],[1,1],[2,1],[1,2] ],
+    [ [0,1],[1,1],[2,1],[1,2] ],
+    [ [1,0],[0,1],[1,1],[1,2] ],
+  ]},
+  O: { color: "#f2d64d", rotations: [[ [0,0],[1,0],[0,1],[1,1] ]] },
+  I: { color: "#40e0d0", rotations: [
+    [ [0,1],[1,1],[2,1],[3,1] ],
+    [ [2,0],[2,1],[2,2],[2,3] ]
+  ]},
+  J: { color: "#4169e1", rotations: [
+    [ [0,0],[0,1],[1,1],[2,1] ],
+    [ [1,0],[2,0],[1,1],[1,2] ],
+    [ [0,1],[1,1],[2,1],[2,2] ],
+    [ [1,0],[1,1],[0,2],[1,2] ]
+  ]},
+  L: { color: "#ff9900", rotations: [
+    [ [2,0],[0,1],[1,1],[2,1] ],
+    [ [1,0],[1,1],[1,2],[2,2] ],
+    [ [0,1],[1,1],[2,1],[0,2] ],
+    [ [0,0],[1,0],[1,1],[1,2] ]
+  ]},
+  S: { color: "#00cc66", rotations: [
+    [ [1,0],[2,0],[0,1],[1,1] ],
+    [ [1,0],[1,1],[2,1],[2,2] ]
+  ]},
+  Z: { color: "#ff4d4d", rotations: [
+    [ [0,0],[1,0],[1,1],[2,1] ],
+    [ [2,0],[1,1],[2,1],[1,2] ]
+  ]}
+};
 
-  <script>
-    let gameStarted = false;
-    let colorChangeTime = 0;
-    let clicked = false;
-    let timeoutID = null;
+const arena = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+let bag = [];
 
-    const box = document.getElementById("box");
-    const message = document.getElementById("message");
-    const highScoreDisplay = document.getElementById("highScoreDisplay");
-    const startBtn = document.getElementById("startBtn");
+let current = null;
+let pos = { x: 3, y: 0 };
+let rot = 0;
+let dropCounter = 0;
+let dropInterval = 1000;
+let countTimeDivision = 1;
+let lastTime = 0;
+let running = false;
+let score = 0;
+let level = 1;
 
-    // Load high score from localStorage
-    let highScore = parseFloat(localStorage.getItem("colorClickHighScore"));
-    if (!isNaN(highScore)) {
-      highScoreDisplay.textContent = `High Score: ${highScore.toFixed(3)}s`;
+// High score state
+let highLevel = parseInt(localStorage.getItem("highLevel") || "0");
+let highPoints = parseInt(localStorage.getItem("highPoints") || "0");
+
+function updateDisplays() {
+  document.getElementById("score").innerText = `Score: ${score}`;
+  document.getElementById("level").innerText = `Level: ${level}`;
+  document.getElementById("interval").innerText = `Interval: ${Math.floor(dropInterval)}ms`;
+  document.getElementById("highscore").innerText = `High Score: Level ${highLevel}, Points ${highPoints}`;
+}
+
+function updateHighScore() {
+  if (level > highLevel || (level === highLevel && score > highPoints)) {
+    highLevel = level;
+    highPoints = score;
+    localStorage.setItem("highLevel", highLevel);
+    localStorage.setItem("highPoints", highPoints);
+    updateDisplays();
+  }
+}
+
+function getNextPiece() {
+  if (bag.length === 0) {
+    bag = Object.keys(PIECES).sort(() => Math.random() - 0.5);
+  }
+  return bag.pop();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (arena[y][x]) drawBlock(x, y, arena[y][x]);
     }
+  }
+  if (current) drawPiece(getGhostY(), PIECES[current.type].color + "55", true);
+  if (current) drawPiece(pos.y, PIECES[current.type].color, false);
+}
 
-    startBtn.onclick = () => {
-      gameStarted = true;
-      clicked = false;
-      box.style.backgroundColor = "gray";
-      message.textContent = "Wait for it...";
+function drawBlock(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK - 1, BLOCK - 1);
+}
 
-      const delay = Math.random() * 3000 + 2000; // 2–5 seconds
-      timeoutID = setTimeout(() => {
-        colorChangeTime = performance.now();
-        box.style.backgroundColor = "green";
-        message.textContent = "CLICK NOW!";
-      }, delay);
-    };
+function drawPiece(yOffset, color, isGhost) {
+  for (let [dx, dy] of PIECES[current.type].rotations[rot]) {
+    const x = pos.x + dx;
+    const y = yOffset + dy;
+    if (y >= 0) drawBlock(x, y, color);
+  }
+}
 
-    box.onclick = () => {
-      if (!gameStarted || clicked) return;
-      clicked = true;
+function collide(testX = pos.x, testY = pos.y, testRot = rot) {
+  return PIECES[current.type].rotations[testRot].some(([dx, dy]) => {
+    const x = testX + dx;
+    const y = testY + dy;
+    return y >= ROWS || x < 0 || x >= COLS || (arena[y] && arena[y][x]);
+  });
+}
 
-      const clickTime = performance.now();
+function getGhostY() {
+  let ghostY = pos.y;
+  while (!collide(pos.x, ghostY + 1, rot)) ghostY++;
+  return ghostY;
+}
 
-      if (box.style.backgroundColor === "green") {
-        const reactionTime = (clickTime - colorChangeTime) / 1000;
-        message.textContent = `✅ Good job! Your reaction time: ${reactionTime.toFixed(3)}s`;
+function merge() {
+  for (let [dx, dy] of PIECES[current.type].rotations[rot]) {
+    const x = pos.x + dx;
+    const y = pos.y + dy;
+    if (arena[y]) arena[y][x] = PIECES[current.type].color;
+  }
+}
 
-        if (isNaN(highScore) || reactionTime < highScore) {
-          highScore = reactionTime;
-          localStorage.setItem("colorClickHighScore", highScore);
-          highScoreDisplay.textContent = `High Score: ${highScore.toFixed(3)}s 🏆 New Best!`;
-        }
+function clearLines() {
+  outer: for (let y = ROWS - 1; y >= 0; y--) {
+    for (let x = 0; x < COLS; x++) {
+      if (!arena[y][x]) continue outer;
+    }
+    arena.splice(y, 1);
+    arena.unshift(Array(COLS).fill(0));
+    score++;
+    if (score >= 10) {
+      level++;
+      score = 0;
+      countTimeDivision += 0.1;
+      dropInterval = 1000 / countTimeDivision;
+    }
+    updateDisplays();
+    y++;
+  }
+}
 
-      } else {
-        clearTimeout(timeoutID);
-        message.textContent = "❌ Too soon! Wait for green!";
-      }
+function drop() {
+  pos.y++;
+  if (collide()) {
+    pos.y--;
+    merge();
+    clearLines();
+    resetPiece();
+  }
+  dropCounter = 0;
+}
 
-      gameStarted = false;
-    };
-  </script>
+function hardDrop() {
+  pos.y = getGhostY();
+  merge();
+  clearLines();
+  resetPiece();
+  dropCounter = 0;
+}
 
+function resetPiece() {
+  const type = getNextPiece();
+  current = { type };
+  pos = { x: 3, y: 0 };
+  rot = 0;
+  if (collide()) {
+    updateHighScore();
+    arena.forEach(row => row.fill(0));
+    running = false;
+    score = 0;
+    level = 1;
+    countTimeDivision = 1;
+    dropInterval = 1000;
+    alert("Game Over");
+  }
+  updateDisplays();
+}
+
+function rotate(dir) {
+  const prevRot = rot;
+  rot = (rot + dir + 4) % PIECES[current.type].rotations.length;
+  if (collide()) rot = prevRot;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!running && e.code === "Space") {
+    running = true;
+    score = 0;
+    level = 1;
+    countTimeDivision = 1;
+    dropInterval = 1000;
+    updateDisplays();
+    resetPiece();
+    update();
+  }
+  if (!running) return;
+
+  if (e.code === "ArrowLeft") { pos.x--; if (collide()) pos.x++; }
+  if (e.code === "ArrowRight") { pos.x++; if (collide()) pos.x--; }
+  if (e.code === "ArrowDown") drop();
+  if (e.code === "ArrowUp" && !e.shiftKey) hardDrop();
+  if (e.code === "ArrowUp" && e.shiftKey) resetPiece();
+  if (e.code === "KeyR") rotate(1);
+});
+
+function update(time = 0) {
+  const delta = time - lastTime;
+  lastTime = time;
+  dropCounter += delta;
+  if (dropCounter > dropInterval) drop();
+  draw();
+  if (running) requestAnimationFrame(update);
+}
+
+// First load
+updateDisplays();
+</script>
 </body>
 </html>
+-->

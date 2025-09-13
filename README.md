@@ -15,7 +15,7 @@ A simple reaction time game where players click on a box when it turns green. Te
 - Simple and intuitive gameplay
 - Reaction time measurement in seconds
 - Local storage to save your high score
-- Responsive design that works on desktop and mobile devices
+- Responsive design that works on desktop and moble devices
 
 ## Play Online
 
