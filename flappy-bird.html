@@ -2,69 +2,190 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Classic Games</title>
+  <title>Flappy Bird </title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#87ceeb; }
+    canvas      { display:block; width:100%; height:100%; }
+
+    /* overlays */
+    #msg,#subMsg,#startHint,#hud{
+      position:absolute;pointer-events:none;font-family:Arial,sans-serif;
+      text-shadow:2px 2px 4px rgba(0,0,0,.4);color:#ffffff;text-align:center;
     }
-    
-    h1 {
-      color: white;
-      font-size: 3rem;
-      margin-bottom: 50px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    }
-    
-    .game-buttons {
-      display: flex;
-      gap: 30px;
-    }
-    
-    .game-btn {
-      padding: 20px 40px;
-      font-size: 1.2rem;
-      font-weight: bold;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: transform 0.2s ease;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    
-    .game-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-    }
-    
-    .flappy-btn {
-      background: #ff6b6b;
-      color: white;
-    }
-    
-    .tetris-btn {
-      background: #4ecdc4;
-      color: white;
-    }
+    #msg{top:40%;left:50%;transform:translateX(-50%);font-size:64px;font-weight:bold;color:#ff3232;display:none;}
+    #subMsg{top:55%;left:50%;transform:translateX(-50%);font-size:28px;font-weight:bold;display:none;}
+    #startHint{top:40%;left:50%;transform:translateX(-50%);font-size:40px;}
+    #hud{top:12px;right:16px;font-size:28px;font-weight:bold;line-height:1.3;white-space:pre;}
+    #backBtn{position:absolute;top:12px;left:16px;padding:10px 20px;background:#2196F3;color:white;border:none;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:all 0.2s ease;}
+    #backBtn:hover{background:#1976D2;transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,0.4);}
   </style>
 </head>
 <body>
-  <h1>Classic Games to Play</h1>
-  <div class="game-buttons">
-    <button class="game-btn flappy-btn" onclick="window.location.href='flappy-bird.html'">🐦 Flappy Bird</button>
-    <button class="game-btn tetris-btn" onclick="openTetris()">🧩 Tetris</button>
-  </div>
+<canvas id="game"></canvas>
 
-  <script>
-    function openTetris() {
-      const tetrisHTML = `<!DOCTYPE html>
+<!-- UI layers -->
+<div id="msg">YOU&nbsp;DIED!</div>
+<div id="subMsg"></div>
+<div id="startHint">Press&nbsp;SPACE&nbsp;to&nbsp;start / flap</div>
+<div id="hud"></div>
+<button id="backBtn" onclick="window.location.href='index.html'">← Back to Menu</button>
+
+<script>
+/* ---------- canvas ---------- */
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+addEventListener("resize",resize);resize();
+
+/* ---------- bird ---------- */
+const GRAVITY=-1,JUMP=9,SIZE=35;
+const bird={size:SIZE,x:canvas.width/2-200,scratchY:0,ySpeed:0};
+
+/* ---------- pipes ---------- */
+const PIPE_W=135,PIPE_VX=2,GAP_MIN=140,GAP_MAX=175,MIN_WALL=10;
+let pipes=[];
+
+/* ---------- quips by cause ---------- */
+const QUIPS={
+  ground:"you got caked by a stone cake!",
+  ceiling:"you tried to touch the sun!",
+  pipe:"you became a pancake by a pipe!"
+};
+
+/* ---------- score / high‑score ---------- */
+let score=0;
+let highScore=Number(localStorage.getItem("HighScoreOfPlayer")||0);
+const hud=document.getElementById("hud");
+function updateHUD(){ hud.textContent=`Score: ${score}\nHigh:  ${highScore}`; }
+
+/* build one pipe pair */
+function makePipePair(){
+  const H=canvas.height;
+  const gapTarget=GAP_MIN+Math.floor(Math.random()*(GAP_MAX-GAP_MIN+1));
+  let topH,bottomH,gap;
+  do{
+    topH=MIN_WALL+Math.floor(Math.random()*(H-2*MIN_WALL));
+    bottomH=MIN_WALL+Math.floor(Math.random()*(H-2*MIN_WALL));
+    gap=H-topH-bottomH;
+  }while(gap<=0);
+  if(gap>gapTarget){while(gap>gapTarget){topH++;bottomH++;gap-=2;}}
+  else if(gap<gapTarget){
+    while(gap<gapTarget){
+      if(topH>MIN_WALL)topH--;
+      if(bottomH>MIN_WALL)bottomH--;
+      gap+=2;
+    }
+    if(gap===gapTarget+1){
+      if(Math.random()<.5&&topH>MIN_WALL)topH++;else bottomH++;
+    }
+  }
+  return{x:canvas.width+PIPE_W,topH,bottomH,w:PIPE_W,scored:false}; // scored flag
+}
+
+/* helpers */
+function die(cause){
+  running=false;
+  document.getElementById("msg").style.display="block";
+  const sub=document.getElementById("subMsg");
+  sub.textContent=QUIPS[cause]||"RIP!";
+  sub.style.display="block";
+  // update & persist high‑score one last time in case you died clearing a pipe
+  if(score>highScore){
+    highScore=score;
+    localStorage.setItem("HighScoreOfPlayer",highScore);
+    updateHUD();
+  }
+}
+
+/* ---------- game state ---------- */
+let started=false,running=true,jumpQueued=false;
+addEventListener("keydown",e=>{
+  if(e.code!=="Space")return;
+  if(!started){
+    started=true;
+    document.getElementById("startHint").style.display="none";
+    bird.ySpeed=JUMP;
+    pipes.push(makePipePair());
+    score=0; updateHUD();
+  }else if(running){
+    jumpQueued=true;
+  }
+});
+
+/* ---------- main loop ---------- */
+function update(){
+  if(!running)return;
+
+  /* bird physics */
+  if(started){
+    bird.ySpeed+=GRAVITY;
+    if(jumpQueued){bird.ySpeed=JUMP;jumpQueued=false;}
+    bird.scratchY+=bird.ySpeed;
+  }
+  const yCanvas=canvas.height/2-bird.scratchY;
+
+  /* edge death */
+  if(started){
+    if(yCanvas-SIZE/2<=0){die("ceiling");}
+    else if(yCanvas+SIZE/2>=canvas.height){die("ground");}
+  }
+
+  /* pipes movement + spawn */
+  if(started){
+    for(const p of pipes)p.x-=PIPE_VX;
+    pipes=pipes.filter(p=>p.x+p.w>0);
+    const last=pipes[pipes.length-1];
+    if(!last||last.x+last.w<canvas.width-300)pipes.push(makePipePair());
+  }
+
+  /* pipe collision + scoring */
+  if(started&&running){
+    const bL=bird.x-SIZE/2,bR=bird.x+SIZE/2,bT=yCanvas-SIZE/2,bB=yCanvas+SIZE/2;
+    for(const p of pipes){
+      const pL=p.x,pR=p.x+p.w;
+      /* ---- collision ---- */
+      if(bR>pL&&bL<pR){
+        if(bT<=p.topH||bB>=canvas.height-p.bottomH){die("pipe");break;}
+      }
+      /* ---- scoring ---- */
+      if(!p.scored && bR>pR){            // bird completely passed pipe
+        p.scored=true;
+        score++;
+        if(score>highScore){
+          highScore=score;
+          localStorage.setItem("HighScoreOfPlayer",highScore);
+        }
+        updateHUD();
+      }
+    }
+  }
+
+  draw(yCanvas);
+  requestAnimationFrame(update);
+}
+
+/* ---------- render ---------- */
+function draw(yCanvas){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#1faa00";
+  for(const p of pipes){
+    ctx.fillRect(p.x,0,p.w,p.topH);
+    ctx.fillRect(p.x,canvas.height-p.bottomH,p.w,p.bottomH);
+  }
+  ctx.fillStyle="#ffdc00";
+  ctx.fillRect(bird.x-SIZE/2,yCanvas-SIZE/2,SIZE,SIZE);
+}
+
+/* ---------- boot ---------- */
+updateHUD();
+draw(canvas.height/2);
+requestAnimationFrame(update);
+</script>
+</body>
+</html>
+
+<!--
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -86,15 +207,14 @@
     #highscore { top: 10px; left: 20px; }
     #go_back_btn { 
       position: absolute;
-      top: 50px;
-      right: 20px;
-      font-size: 16px;
+      top: 700px;
+      left: 650px;
+      font-size: 30px;
       border-radius: 4px;
       outline: 2px white solid;
       background: black;
       color: white;
       cursor: pointer;
-      padding: 10px 20px;
     }
   </style>
 </head>
@@ -102,7 +222,7 @@
 <canvas id="game" width="300" height="600"></canvas>
 <div id="highscore">High Score: Level 0, Points 0</div>
 <div id="score">Score: 0</div>
-<button id="go_back_btn" onclick="window.close()">← Close</button>
+<button id="go_back_btn" onclick="go_back()">Go Back</button>
 <div id="level">Level: 1</div>
 <div id="interval">Interval: 1000ms</div>
 <p id="instructions">
@@ -112,6 +232,7 @@
 </p>
 
 <script>
+function go_back() { window.location = "https://viyanajith.blog/viyanajith-blog-games-classic/"; }
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -167,14 +288,15 @@ let running = false;
 let score = 0;
 let level = 1;
 
+// High score state
 let highLevel = parseInt(localStorage.getItem("highLevel") || "0");
 let highPoints = parseInt(localStorage.getItem("highPoints") || "0");
 
 function updateDisplays() {
-  document.getElementById("score").innerText = \`Score: \${score}\`;
-  document.getElementById("level").innerText = \`Level: \${level}\`;
-  document.getElementById("interval").innerText = \`Interval: \${Math.floor(dropInterval)}ms\`;
-  document.getElementById("highscore").innerText = \`High Score: Level \${highLevel}, Points \${highPoints}\`;
+  document.getElementById("score").innerText = `Score: ${score}`;
+  document.getElementById("level").innerText = `Level: ${level}`;
+  document.getElementById("interval").innerText = `Interval: ${Math.floor(dropInterval)}ms`;
+  document.getElementById("highscore").innerText = `High Score: Level ${highLevel}, Points ${highPoints}`;
 }
 
 function updateHighScore() {
@@ -332,15 +454,9 @@ function update(time = 0) {
   if (running) requestAnimationFrame(update);
 }
 
+// First load
 updateDisplays();
-<\/script>
-</body>
-</html>`;
-
-      const tetrisWindow = window.open('', '_blank');
-      tetrisWindow.document.write(tetrisHTML);
-      tetrisWindow.document.close();
-    }
-  </script>
+</script>
 </body>
 </html>
+-->
