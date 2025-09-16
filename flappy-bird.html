@@ -18,6 +18,8 @@
     #hud{top:12px;right:16px;font-size:28px;font-weight:bold;line-height:1.3;white-space:pre;}
     #backBtn{position:absolute;top:12px;left:16px;padding:10px 20px;background:#2196F3;color:white;border:none;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:all 0.2s ease;}
     #backBtn:hover{background:#1976D2;transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,0.4);}
+    #restartBtn{position:absolute;top:65%;left:50%;transform:translateX(-50%);padding:12px 30px;background:#4CAF50;color:white;border:none;border-radius:6px;font-size:18px;cursor:pointer;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:all 0.2s ease;display:none;}
+    #restartBtn:hover{background:#45a049;transform:translate(-50%, -1px);box-shadow:0 4px 8px rgba(0,0,0,0.4);}
   </style>
 </head>
 <body>
@@ -26,9 +28,10 @@
 <!-- UI layers -->
 <div id="msg">YOU&nbsp;DIED!</div>
 <div id="subMsg"></div>
-<div id="startHint">Press&nbsp;SPACE&nbsp;to&nbsp;start / flap</div>
+<div id="startHint">Press&nbsp;SPACE&nbsp;or&nbsp;TAP/CLICK&nbsp;to&nbsp;start / flap</div>
 <div id="hud"></div>
 <button id="backBtn" onclick="window.location.href='index.html'">← Back to Menu</button>
+<button id="restartBtn">Play Again</button>
 
 <script>
 /* ---------- canvas ---------- */
@@ -89,6 +92,8 @@ function die(cause){
   const sub=document.getElementById("subMsg");
   sub.textContent=QUIPS[cause]||"RIP!";
   sub.style.display="block";
+  // Show restart button
+  document.getElementById("restartBtn").style.display="block";
   // update & persist high‑score one last time in case you died clearing a pipe
   if(score>highScore){
     highScore=score;
@@ -99,8 +104,8 @@ function die(cause){
 
 /* ---------- game state ---------- */
 let started=false,running=true,jumpQueued=false;
-addEventListener("keydown",e=>{
-  if(e.code!=="Space")return;
+
+function handleJump() {
   if(!started){
     started=true;
     document.getElementById("startHint").style.display="none";
@@ -110,6 +115,24 @@ addEventListener("keydown",e=>{
   }else if(running){
     jumpQueued=true;
   }
+}
+
+// Keyboard controls
+addEventListener("keydown",e=>{
+  if(e.code==="Space") handleJump();
+});
+
+// Mouse/Touch controls
+canvas.addEventListener("click", handleJump);
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  handleJump();
+}, { passive: false });
+
+// Restart button
+const restartBtn = document.getElementById("restartBtn");
+restartBtn.addEventListener("click", () => {
+  location.reload();
 });
 
 /* ---------- main loop ---------- */
@@ -183,280 +206,3 @@ requestAnimationFrame(update);
 </script>
 </body>
 </html>
-
-<!--
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Tetris Game</title>
-  <style>
-    html, body { margin: 0; background: black; color: white; font-family: sans-serif; }
-    canvas { display: block; margin: auto; background: #111; }
-    #instructions {
-      text-align: center; font-size: 14px; margin: 16px auto; max-width: 500px;
-    }
-    #score, #level, #interval, #highscore {
-      position: absolute;
-      font-size: 20px;
-      font-family: monospace;
-    }
-    #score { top: 10px; right: 20px; }
-    #level { bottom: 10px; left: 20px; }
-    #interval { bottom: 10px; right: 20px; }
-    #highscore { top: 10px; left: 20px; }
-    #go_back_btn { 
-      position: absolute;
-      top: 700px;
-      left: 650px;
-      font-size: 30px;
-      border-radius: 4px;
-      outline: 2px white solid;
-      background: black;
-      color: white;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-<canvas id="game" width="300" height="600"></canvas>
-<div id="highscore">High Score: Level 0, Points 0</div>
-<div id="score">Score: 0</div>
-<button id="go_back_btn" onclick="go_back()">Go Back</button>
-<div id="level">Level: 1</div>
-<div id="interval">Interval: 1000ms</div>
-<p id="instructions">
-  Press SPACE to start the game.<br>
-  ← / → to move, ↓ to drop faster, ↑ for hard drop.<br>
-  R: Rotate Right | ⇧+↑: Skip to next piece
-</p>
-
-<script>
-function go_back() { window.location = "https://viyanajith.blog/viyanajith-blog-games-classic/"; }
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-const COLS = 10, ROWS = 20, BLOCK = 30;
-canvas.width = COLS * BLOCK;
-canvas.height = ROWS * BLOCK;
-
-const PIECES = {
-  T: { color: "#a349a4", rotations: [
-    [ [0,1],[1,0],[1,1],[2,1] ],
-    [ [1,0],[1,1],[2,1],[1,2] ],
-    [ [0,1],[1,1],[2,1],[1,2] ],
-    [ [1,0],[0,1],[1,1],[1,2] ],
-  ]},
-  O: { color: "#f2d64d", rotations: [[ [0,0],[1,0],[0,1],[1,1] ]] },
-  I: { color: "#40e0d0", rotations: [
-    [ [0,1],[1,1],[2,1],[3,1] ],
-    [ [2,0],[2,1],[2,2],[2,3] ]
-  ]},
-  J: { color: "#4169e1", rotations: [
-    [ [0,0],[0,1],[1,1],[2,1] ],
-    [ [1,0],[2,0],[1,1],[1,2] ],
-    [ [0,1],[1,1],[2,1],[2,2] ],
-    [ [1,0],[1,1],[0,2],[1,2] ]
-  ]},
-  L: { color: "#ff9900", rotations: [
-    [ [2,0],[0,1],[1,1],[2,1] ],
-    [ [1,0],[1,1],[1,2],[2,2] ],
-    [ [0,1],[1,1],[2,1],[0,2] ],
-    [ [0,0],[1,0],[1,1],[1,2] ]
-  ]},
-  S: { color: "#00cc66", rotations: [
-    [ [1,0],[2,0],[0,1],[1,1] ],
-    [ [1,0],[1,1],[2,1],[2,2] ]
-  ]},
-  Z: { color: "#ff4d4d", rotations: [
-    [ [0,0],[1,0],[1,1],[2,1] ],
-    [ [2,0],[1,1],[2,1],[1,2] ]
-  ]}
-};
-
-const arena = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-let bag = [];
-
-let current = null;
-let pos = { x: 3, y: 0 };
-let rot = 0;
-let dropCounter = 0;
-let dropInterval = 1000;
-let countTimeDivision = 1;
-let lastTime = 0;
-let running = false;
-let score = 0;
-let level = 1;
-
-// High score state
-let highLevel = parseInt(localStorage.getItem("highLevel") || "0");
-let highPoints = parseInt(localStorage.getItem("highPoints") || "0");
-
-function updateDisplays() {
-  document.getElementById("score").innerText = `Score: ${score}`;
-  document.getElementById("level").innerText = `Level: ${level}`;
-  document.getElementById("interval").innerText = `Interval: ${Math.floor(dropInterval)}ms`;
-  document.getElementById("highscore").innerText = `High Score: Level ${highLevel}, Points ${highPoints}`;
-}
-
-function updateHighScore() {
-  if (level > highLevel || (level === highLevel && score > highPoints)) {
-    highLevel = level;
-    highPoints = score;
-    localStorage.setItem("highLevel", highLevel);
-    localStorage.setItem("highPoints", highPoints);
-    updateDisplays();
-  }
-}
-
-function getNextPiece() {
-  if (bag.length === 0) {
-    bag = Object.keys(PIECES).sort(() => Math.random() - 0.5);
-  }
-  return bag.pop();
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      if (arena[y][x]) drawBlock(x, y, arena[y][x]);
-    }
-  }
-  if (current) drawPiece(getGhostY(), PIECES[current.type].color + "55", true);
-  if (current) drawPiece(pos.y, PIECES[current.type].color, false);
-}
-
-function drawBlock(x, y, color) {
-  ctx.fillStyle = color;
-  ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK - 1, BLOCK - 1);
-}
-
-function drawPiece(yOffset, color, isGhost) {
-  for (let [dx, dy] of PIECES[current.type].rotations[rot]) {
-    const x = pos.x + dx;
-    const y = yOffset + dy;
-    if (y >= 0) drawBlock(x, y, color);
-  }
-}
-
-function collide(testX = pos.x, testY = pos.y, testRot = rot) {
-  return PIECES[current.type].rotations[testRot].some(([dx, dy]) => {
-    const x = testX + dx;
-    const y = testY + dy;
-    return y >= ROWS || x < 0 || x >= COLS || (arena[y] && arena[y][x]);
-  });
-}
-
-function getGhostY() {
-  let ghostY = pos.y;
-  while (!collide(pos.x, ghostY + 1, rot)) ghostY++;
-  return ghostY;
-}
-
-function merge() {
-  for (let [dx, dy] of PIECES[current.type].rotations[rot]) {
-    const x = pos.x + dx;
-    const y = pos.y + dy;
-    if (arena[y]) arena[y][x] = PIECES[current.type].color;
-  }
-}
-
-function clearLines() {
-  outer: for (let y = ROWS - 1; y >= 0; y--) {
-    for (let x = 0; x < COLS; x++) {
-      if (!arena[y][x]) continue outer;
-    }
-    arena.splice(y, 1);
-    arena.unshift(Array(COLS).fill(0));
-    score++;
-    if (score >= 10) {
-      level++;
-      score = 0;
-      countTimeDivision += 0.1;
-      dropInterval = 1000 / countTimeDivision;
-    }
-    updateDisplays();
-    y++;
-  }
-}
-
-function drop() {
-  pos.y++;
-  if (collide()) {
-    pos.y--;
-    merge();
-    clearLines();
-    resetPiece();
-  }
-  dropCounter = 0;
-}
-
-function hardDrop() {
-  pos.y = getGhostY();
-  merge();
-  clearLines();
-  resetPiece();
-  dropCounter = 0;
-}
-
-function resetPiece() {
-  const type = getNextPiece();
-  current = { type };
-  pos = { x: 3, y: 0 };
-  rot = 0;
-  if (collide()) {
-    updateHighScore();
-    arena.forEach(row => row.fill(0));
-    running = false;
-    score = 0;
-    level = 1;
-    countTimeDivision = 1;
-    dropInterval = 1000;
-    alert("Game Over");
-  }
-  updateDisplays();
-}
-
-function rotate(dir) {
-  const prevRot = rot;
-  rot = (rot + dir + 4) % PIECES[current.type].rotations.length;
-  if (collide()) rot = prevRot;
-}
-
-document.addEventListener("keydown", (e) => {
-  if (!running && e.code === "Space") {
-    running = true;
-    score = 0;
-    level = 1;
-    countTimeDivision = 1;
-    dropInterval = 1000;
-    updateDisplays();
-    resetPiece();
-    update();
-  }
-  if (!running) return;
-
-  if (e.code === "ArrowLeft") { pos.x--; if (collide()) pos.x++; }
-  if (e.code === "ArrowRight") { pos.x++; if (collide()) pos.x--; }
-  if (e.code === "ArrowDown") drop();
-  if (e.code === "ArrowUp" && !e.shiftKey) hardDrop();
-  if (e.code === "ArrowUp" && e.shiftKey) resetPiece();
-  if (e.code === "KeyR") rotate(1);
-});
-
-function update(time = 0) {
-  const delta = time - lastTime;
-  lastTime = time;
-  dropCounter += delta;
-  if (dropCounter > dropInterval) drop();
-  draw();
-  if (running) requestAnimationFrame(update);
-}
-
-// First load
-updateDisplays();
-</script>
-</body>
-</html>
--->
