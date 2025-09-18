@@ -2,72 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Classic Games</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    h1 {
-      color: white;
-      font-size: 3rem;
-      margin-bottom: 50px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    }
-    
-    .game-buttons {
-      display: flex;
-      gap: 30px;
-    }
-    
-    .game-btn {
-      padding: 20px 40px;
-      font-size: 1.2rem;
-      font-weight: bold;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: transform 0.2s ease;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    
-    .game-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-    }
-    
-    .flappy-btn {
-      background: #ff6b6b;
-      color: white;
-    }
-    
-    .tetris-btn {
-      background: #4ecdc4;
-      color: white;
-    }
-  </style>
-</head>
-<body>
-  <h1>Classic Games to Play</h1>
-  <div class="game-buttons">
-    <button class="game-btn flappy-btn" onclick="window.location.href='flappy-bird.html'">🐦 Flappy Bird</button>
-    <button class="game-btn tetris-btn" onclick="openTetris()">🧩 Tetris</button>
-  </div>
-
-  <script>
-    function openTetris() {
-      const tetrisHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
   <title>Tetris Game</title>
   <style>
     html, body { margin: 0; background: black; color: white; font-family: sans-serif; }
@@ -102,7 +36,7 @@
 <canvas id="game" width="300" height="600"></canvas>
 <div id="highscore">High Score: Level 0, Points 0</div>
 <div id="score">Score: 0</div>
-<button id="go_back_btn" onclick="window.close()">← Close</button>
+<button id="go_back_btn" onclick="window.history.back()">← Back to Games</button>
 <div id="level">Level: 1</div>
 <div id="interval">Interval: 1000ms</div>
 <p id="instructions">
@@ -171,10 +105,10 @@ let highLevel = parseInt(localStorage.getItem("highLevel") || "0");
 let highPoints = parseInt(localStorage.getItem("highPoints") || "0");
 
 function updateDisplays() {
-  document.getElementById("score").innerText = \`Score: \${score}\`;
-  document.getElementById("level").innerText = \`Level: \${level}\`;
-  document.getElementById("interval").innerText = \`Interval: \${Math.floor(dropInterval)}ms\`;
-  document.getElementById("highscore").innerText = \`High Score: Level \${highLevel}, Points \${highPoints}\`;
+  document.getElementById("score").innerText = `Score: ${score}`;
+  document.getElementById("level").innerText = `Level: ${level}`;
+  document.getElementById("interval").innerText = `Interval: ${Math.floor(dropInterval)}ms`;
+  document.getElementById("highscore").innerText = `High Score: Level ${highLevel}, Points ${highPoints}`;
 }
 
 function updateHighScore() {
@@ -333,14 +267,6 @@ function update(time = 0) {
 }
 
 updateDisplays();
-<\/script>
-</body>
-</html>`;
-
-      const tetrisWindow = window.open('', '_blank');
-      tetrisWindow.document.write(tetrisHTML);
-      tetrisWindow.document.close();
-    }
-  </script>
+</script>
 </body>
 </html>

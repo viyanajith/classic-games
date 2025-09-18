@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Classic Games</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    h1 {
+      color: white;
+      font-size: 3rem;
+      margin-bottom: 50px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    
+    .game-buttons {
+      display: flex;
+      gap: 30px;
+    }
+    
+    .game-btn {
+      padding: 20px 40px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .game-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+    
+    .flappy-btn {
+      background: #ff6b6b;
+      color: white;
+    }
+    
+    .tetris-btn {
+      background: #4ecdc4;
+      color: white;
+    }
+    
+    .blog-btn {
+      background: #9b59b6;
+      color: white;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      text-decoration: none;
+      padding: 8px 15px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Classic Games to Play</h1>
+  <div class="game-buttons">
+    <button class="game-btn flappy-btn" onclick="window.location.href='flappy-bird.html'">🐦 Flappy Bird</button>
+    <a href="https://viyanajith.github.io/classic-games/tetris.html" class="game-btn tetris-btn">🧩 Tetris</a>
+    <a href="https://viyanajith.blog/viyanajith-blog-games" class="blog-btn">More games on viyanajith.blog</a>
+  </div>
+
+  <script>
+    // Game initialization scripts can go here if needed
+  </script>
+</body>
+</html>
