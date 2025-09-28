@@ -33,10 +33,14 @@
 <div id="subMsg"></div>
 <div id="startHint">Press&nbsp;SPACE&nbsp;or&nbsp;TAP/CLICK&nbsp;to&nbsp;start / flap</div>
 <div id="hud"></div>
-<button id="backBtn" onclick="window.location.href='https://viyanajith.github.io/classic-games/'">← Back to Menu</button>
+<button id="backBtn">← Back to Menu</button>
 <button id="restartBtn">Play Again</button>
 
 <script>
+// go back button here 
+document.getElementById("backBtn").addEventListener("click", () => {
+window.location.href='https://viyanajith.github.io/classic-games/mainscreen.html'
+});
 /* ---------- canvas ---------- */
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
